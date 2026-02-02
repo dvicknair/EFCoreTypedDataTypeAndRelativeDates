@@ -13,9 +13,10 @@ public class TaskFilter
 public class FilterCriterion<T>
 {
     public T? Value { get; set; }
-    public FilterOperator Operator { get; set; }
+    public ComparisonOperator Operator { get; set; }
 }
-public enum FilterOperator
+
+public enum ComparisonOperator
 {
     Equal,
     NotEqual,
@@ -24,7 +25,9 @@ public enum FilterOperator
     GreaterThanOrEqual,
     LessThanOrEqual,
     In,
-    NotIn
+    NotIn,
+    Contains,
+    NotContains
 }
 
 public struct RelativeDateRange
@@ -36,11 +39,6 @@ public struct RelativeDateRange
         _expression = expression ?? string.Empty;
     }
 
-    /// <summary>
-    /// Parses the relative date expression and returns the corresponding date range.
-    /// Supports relative expressions (T, M, W, Y, etc.) and absolute date or datetime strings.
-    /// </summary>
-    /// <returns>Tuple of (start, end) dates, or null if invalid.</returns>
     public (DateTime Start, DateTime End)? GetDateRange()
     {
         var expr = _expression.Trim().ToUpperInvariant();
@@ -151,10 +149,4 @@ public struct RelativeDateRange
     }
 
     public override string ToString() => _expression;
-
-    // Implicit conversion from string to RelativeDate
-    public static implicit operator RelativeDateRange(string expression) => new RelativeDateRange(expression);
-
-    // Implicit conversion from RelativeDate to string
-    public static implicit operator string(RelativeDateRange relativeDate) => relativeDate._expression;
 }
