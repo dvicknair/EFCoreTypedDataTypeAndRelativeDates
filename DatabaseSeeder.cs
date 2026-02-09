@@ -29,12 +29,12 @@ public class DatabaseSeeder
             Name = "Sample Filter",
             DueDate = new FilterCriterion<RelativeDateRange>
             {
-                Operator = FilterOperator.In,
+                Operator = ComparisonOperator.In,
                 Value = new RelativeDateRange("T+10")
             },
             TagIds = new FilterCriterion<List<int>>
             {
-                Operator = FilterOperator.NotEqual,
+                Operator = ComparisonOperator.NotEqual,
                 Value = [1, 2]
             }
         };
