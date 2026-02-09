@@ -11,7 +11,7 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices(services =>
 {
     services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=Testing;Trusted_Connection=true;MultipleActiveResultSets=true"));
+        options.UseSqlServer("Server=localhost\\dev;Database=Testing;Trusted_Connection=true;TrustServerCertificate=True;MultipleActiveResultSets=true"));
 });
 
 var app = builder.Build();
@@ -20,35 +20,21 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    db.Database.EnsureDeleted();
-    db.Database.EnsureCreated();
+    var seeder = new DatabaseSeeder(db);
+    seeder.Seed();
 
-    var taskFilter = new TaskFilter
-    {
-        Name = "Sample Filter",
-        DueDate = new FilterCriterion<RelativeDateRange>
-        {
-            Operator = FilterOperator.In,
-            Value = new RelativeDateRange("T+10")
-        },
-        TagIds = new FilterCriterion<List<int>>
-        {
-            Operator = FilterOperator.NotEqual,
-            Value = [1, 2]
-        }
-    };
+    var taskFilter = db.TaskFilters.First();
+    var searchTerm = "i need a good react developer";
+    var formattedSearchTerm = FormatFullTextSearchTerm(searchTerm);
+    var containsResults = db.People
+        .Where(p => EF.Functions.Contains(p.Bio, formattedSearchTerm))
+        .ToList();
+    Console.WriteLine($"CONTAINS '{formattedSearchTerm}': {string.Join(", ", containsResults.Select(p => p.Name))}");
 
-    db.TaskFilters.Add(taskFilter);
-
-    var tasks = new List<TicketTask>
-    {
-        new TicketTask { Title = "Task 1", DueDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-14)), TagIds = new List<int> { 3 } },
-        new TicketTask { Title = "Task 2", DueDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-24)), TagIds = new List<int> { 1, 2 } },
-        new TicketTask { Title = "Task 3", DueDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-1)), TagIds = new List<int> { 4 } },
-        new TicketTask { Title = "Task 3", DueDate = DateOnly.FromDateTime(DateTime.Now), TagIds = new List<int> { 4 } }
-    };
-    db.TicketTasks.AddRange(tasks);
-    db.SaveChanges();
+    var freeTextResults = db.People
+        .Where(p => EF.Functions.FreeText(p.Bio, searchTerm))
+        .ToList();
+    Console.WriteLine($"FREETEXT '{searchTerm}': {string.Join(", ", freeTextResults.Select(p => p.Name))}");
 
     var dueDateRange = taskFilter.DueDate?.Value.GetDateRange();
 
@@ -61,3 +47,13 @@ using (var scope = app.Services.CreateScope())
 
 await app.RunAsync();
 
+static string FormatFullTextSearchTerm(string searchTerm)
+{
+    var stopWords = new HashSet<string> { "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these", "they", "this", "to", "was", "will", "with", "i", "you", "he", "she", "we", "they", "me", "him", "her", "us", "them" };
+
+    var words = searchTerm.ToLower().Split(new[] { ' ', '\t' }, System.StringSplitOptions.RemoveEmptyEntries)
+        .Where(w => !stopWords.Contains(w))
+        .ToList();
+
+    return words.Count > 0 ? string.Join(" & ", words) : searchTerm;
+}
